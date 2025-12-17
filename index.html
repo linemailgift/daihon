@@ -2,21 +2,22 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ちいくじプロンプター</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
             --font-main: "Hiragino Mincho ProN", "MS Mincho", serif;
-            --line-spacing: 2rem;
+            --line-spacing: 0rem; /* 初期値を最小に */
             --cam-scale: 1;
             --cam-y: 0;
+            --bg-color: #000000;
         }
 
         body {
             margin: 0;
             padding: 0;
-            background-color: #000;
+            background-color: var(--bg-color);
             color: #fff;
             font-family: var(--font-main);
             overflow: hidden;
@@ -34,7 +35,7 @@
             align-items: center;
             justify-content: center;
             z-index: 1;
-            background: #000;
+            background: transparent;
         }
 
         #video-preview {
@@ -45,7 +46,6 @@
             transition: transform 0.1s ease-out;
         }
 
-        /* 16:9モード時：縦画面の中に横長の枠を表示 */
         #video-container.mode-16-9 #video-preview {
             aspect-ratio: 16 / 9;
             height: auto;
@@ -64,10 +64,11 @@
         }
 
         .scrolling-content {
-            width: 85%;
-            max-width: 600px;
+            width: 90%;
+            max-width: 800px;
             margin: 0 auto;
-            padding-top: 40vh;
+            /* ステータスバー付近から文字が見えるようにpaddingを調整 */
+            padding-top: env(safe-area-inset-top);
             padding-bottom: 80vh;
             will-change: transform;
         }
@@ -75,8 +76,8 @@
         .script-line {
             margin-bottom: var(--line-spacing);
             text-align: left;
-            text-shadow: 2px 2px 5px rgba(0,0,0,1);
-            line-height: 1.5;
+            text-shadow: 2px 2px 5px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,0.5);
+            line-height: 1.4;
             font-weight: bold;
             word-break: break-all;
         }
@@ -94,7 +95,7 @@
         /* メインコントロールバー */
         #main-controls {
             position: fixed;
-            bottom: 30px;
+            bottom: max(30px, env(safe-area-inset-bottom));
             left: 50%;
             transform: translateX(-50%);
             z-index: 150;
@@ -110,8 +111,8 @@
 
         /* 録画ボタンのデザイン */
         .record-btn {
-            width: 80px;
-            height: 80px;
+            width: 90px;
+            height: 90px;
             border-radius: 50%;
             background-color: #ff4444;
             border: 4px solid #fff;
@@ -121,7 +122,7 @@
             align-items: center;
             justify-content: center;
             color: transparent;
-            font-size: 11px;
+            font-size: 16px; /* 文字を大きく */
             font-weight: bold;
             line-height: 1.2;
             cursor: pointer;
@@ -140,8 +141,8 @@
 
         .timer-text {
             font-family: monospace;
-            font-size: 13px;
-            margin-top: 2px;
+            font-size: 14px;
+            margin-top: 4px;
         }
 
         @keyframes pulse-border {
@@ -173,7 +174,7 @@
             width: 95%;
             max-width: 500px;
             position: fixed;
-            bottom: 140px;
+            bottom: 150px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 140;
@@ -215,6 +216,18 @@
             background: #fff;
             border-radius: 50%;
         }
+        
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: none;
+            cursor: pointer;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 2px solid #fff; border-radius: 50%; }
     </style>
 </head>
 <body>
@@ -233,8 +246,8 @@
         <div class="config-card flex flex-col gap-4">
             <div class="grid grid-cols-2 gap-x-6 gap-y-4">
                 <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">スクロール速度</label>
-                    <input type="range" id="speed-range" min="0" max="200" value="40" class="w-full">
+                    <label class="text-[10px] text-gray-400 block mb-1">スクロール速度 (低速調整)</label>
+                    <input type="range" id="speed-range" min="0" max="50" value="10" class="w-full">
                 </div>
                 <div>
                     <label class="text-[10px] text-gray-400 block mb-1">文字サイズ</label>
@@ -242,7 +255,7 @@
                 </div>
                 <div>
                     <label class="text-[10px] text-gray-400 block mb-1">行間調整</label>
-                    <input type="range" id="spacing-range" min="0" max="100" value="32" class="w-full">
+                    <input type="range" id="spacing-range" min="0" max="100" value="0" class="w-full">
                 </div>
                 <div>
                     <label class="text-[10px] text-gray-400 block mb-1">カメラ上下位置</label>
@@ -252,11 +265,17 @@
                     <label class="text-[10px] text-gray-400 block mb-1">カメラズーム</label>
                     <input type="range" id="cam-size-range" min="50" max="300" value="100" class="w-full">
                 </div>
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">ビデオ形式</label>
-                    <div class="flex gap-2">
-                        <button id="format-9-16-btn" class="toggle-btn active">9:16 (縦)</button>
-                        <button id="format-16-9-btn" class="toggle-btn">16:9 (横)</button>
+                <div class="flex items-center gap-4">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-1">背景色</label>
+                        <input type="color" id="bg-color-picker" value="#000000">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-400 block mb-1">形式</label>
+                        <div class="flex gap-2">
+                            <button id="format-9-16-btn" class="toggle-btn active text-[10px]">9:16</button>
+                            <button id="format-16-9-btn" class="toggle-btn text-[10px]">16:9</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -268,8 +287,8 @@
                 </div>
                 <div class="flex gap-2">
                     <button id="edit-btn" class="bg-white/10 p-2 rounded-lg text-xs">台本編集</button>
-                    <button id="reset-btn" class="bg-white/10 p-2 rounded-lg text-xs font-bold">最初に戻る</button>
-                    <button id="refresh-app-btn" class="bg-green-600/30 border border-green-500/50 p-2 rounded-lg text-xs">アプリ更新</button>
+                    <button id="reset-btn" class="bg-white/10 p-2 rounded-lg text-xs font-bold">冒頭に戻る</button>
+                    <button id="refresh-app-btn" class="bg-green-600/30 border border-green-500/50 p-2 rounded-lg text-xs">更新</button>
                 </div>
             </div>
         </div>
@@ -277,15 +296,10 @@
 
     <!-- メインコントロールバー -->
     <div id="main-controls">
-        <!-- 1. 再生ボタン -->
         <button id="play-pause-btn" class="bg-blue-600 w-11 h-11 rounded-full flex items-center justify-center">
             <span id="play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg></span>
         </button>
-
-        <!-- 2. 録画ボタン (中央) -->
         <button id="record-btn" class="record-btn"></button>
-
-        <!-- 3. 表示・非表示ボタン (右) -->
         <button id="toggle-ui-visibility">
             <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.05-1.465 1.655C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
@@ -318,6 +332,7 @@
         const spacingRange = document.getElementById('spacing-range');
         const camYRange = document.getElementById('cam-y-range');
         const camSizeRange = document.getElementById('cam-size-range');
+        const bgColorPicker = document.getElementById('bg-color-picker');
         const modal = document.getElementById('edit-modal');
         const scriptInput = document.getElementById('script-input');
         
@@ -339,18 +354,16 @@
         let initialPinchDist = 0;
         let initialFontSize = 0;
 
-        const defaultText = `ちいくじプロンプターへようこそ！
+        const defaultText = `ちいくじプロンプター
 
-【縦向き固定設定】
-本体を横にしても表示は変わりません。
-常にこの縦向きレイアウトで撮影できます。
+【最新の調整内容】
+・ステータスバー領域まで文字が表示されます。
+・行間は最小値からスタート。
+・背景色をカラーピッカーで変更可能です。
+・速度調整をよりゆっくり、きめ細かくしました。
+・録画ボタン内の「録画中」を大きく表示。
 
-【機能紹介】
-・録画開始でボタン内に時間が表示されます。
-・録画ボタンを中央、左に再生、右にUI表示切替。
-・設定でスピード、サイズ、カメラ位置を微調整。
-
-最初に戻るボタンでいつでもスタート地点へ。
+設定であなたの撮影スタイルに合わせて調整してください。
 最高の動画を撮影しましょう！`;
 
         function init() {
@@ -365,6 +378,9 @@
             };
             camYRange.oninput = () => {
                 document.documentElement.style.setProperty('--cam-y', camYRange.value);
+            };
+            bgColorPicker.oninput = () => {
+                document.documentElement.style.setProperty('--bg-color', bgColorPicker.value);
             };
             
             requestAnimationFrame(animate);
@@ -403,7 +419,8 @@
             lastTimestamp = timestamp;
 
             if (isPlaying) {
-                const speed = parseFloat(speedRange.value) / 500 * delta;
+                // スピードの計算式を調整（よりゆっくりに）
+                const speed = parseFloat(speedRange.value) / 1000 * delta;
                 scrollY -= speed;
             }
             
@@ -531,7 +548,7 @@
             const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
             const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
             const seconds = String(elapsed % 60).padStart(2, '0');
-            recordBtn.innerHTML = `<div>録画中</div><div class="timer-text">${minutes}:${seconds}</div>`;
+            recordBtn.innerHTML = `<div style="font-size: 16px;">録画中</div><div class="timer-text">${minutes}:${seconds}</div>`;
         }
 
         function stopRecording() {
