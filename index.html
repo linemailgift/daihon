@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YouTube Teleprompter Portrait v5</title>
+    <title>ちいくじプロンプター</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
             --font-main: "Hiragino Mincho ProN", "MS Mincho", serif;
             --line-spacing: 2rem;
             --cam-scale: 1;
-            --cam-y: 0; /* カメラの上下位置 */
+            --cam-y: 0;
         }
 
         body {
@@ -24,7 +24,6 @@
             touch-action: none;
         }
 
-        /* カメラプレビューのコンテナ */
         #video-container {
             position: fixed;
             top: 0;
@@ -38,7 +37,6 @@
             background: #000;
         }
 
-        /* カメラ本体 */
         #video-preview {
             width: 100%;
             height: 100%;
@@ -47,14 +45,12 @@
             transition: transform 0.1s ease-out;
         }
 
-        /* 16:9 モードの時のマスク設定 */
         #video-container.mode-16-9 #video-preview {
             aspect-ratio: 16 / 9;
             height: auto;
             width: 100%;
         }
 
-        /* プロンプターのコンテナ */
         #prompter-container {
             position: absolute;
             top: 0;
@@ -66,7 +62,6 @@
             pointer-events: auto;
         }
 
-        /* 文字コンテンツ (常に縦向き・左寄せ) */
         .scrolling-content {
             width: 85%;
             max-width: 600px;
@@ -76,17 +71,16 @@
             will-change: transform;
         }
 
-        /* 各行のスタイル */
         .script-line {
             margin-bottom: var(--line-spacing);
-            text-align: left; /* 左寄せに変更 */
+            text-align: left;
             text-shadow: 2px 2px 5px rgba(0,0,0,1);
             line-height: 1.5;
             font-weight: bold;
             word-break: break-all;
         }
 
-        /* コントロールUI */
+        /* 設定パネルの表示管理 */
         #settings-panel {
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
@@ -96,23 +90,7 @@
             pointer-events: none;
         }
 
-        #toggle-ui-visibility {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 200;
-            background: #22c55e;
-            box-shadow: 0 4px 14px rgba(34, 197, 94, 0.5);
-            border: 2px solid rgba(255,255,255,0.6);
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-        }
-
+        /* メインコントロールバー */
         #main-controls {
             position: fixed;
             bottom: 30px;
@@ -120,27 +98,70 @@
             transform: translateX(-50%);
             z-index: 150;
             display: flex;
-            gap: 24px;
+            gap: 20px;
             align-items: center;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(10px);
-            padding: 12px 24px;
-            border-radius: 40px;
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(15px);
+            padding: 14px 28px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
+        /* 録画ボタンのデザイン */
         .record-btn {
-            width: 64px;
-            height: 64px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
             background-color: #ff4444;
             border: 4px solid #fff;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: transparent;
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1.2;
+            cursor: pointer;
+            overflow: hidden;
+            white-space: nowrap;
         }
+
+        /* 録画中のスタイル */
         .record-btn.recording {
+            background-color: #fff;
+            color: #ff4444;
             border-radius: 12px;
-            animation: pulse 1.5s infinite;
+            transform: scale(0.95);
+            animation: pulse-border 1.5s infinite;
         }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        .timer-text {
+            font-family: monospace;
+            font-size: 13px;
+            margin-top: 2px;
+        }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
+        /* 表示・非表示ボタン */
+        #toggle-ui-visibility {
+            background: #22c55e;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.4);
+            transition: opacity 0.3s;
+        }
 
         .config-card {
             background: rgba(0,0,0,0.9);
@@ -151,11 +172,11 @@
             width: 95%;
             max-width: 500px;
             position: fixed;
-            bottom: 120px;
+            bottom: 140px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 140;
-            max-height: 55vh;
+            max-height: 50vh;
             overflow-y: auto;
         }
 
@@ -192,23 +213,14 @@
             height: 18px;
             background: #fff;
             border-radius: 50%;
-            cursor: pointer;
         }
     </style>
 </head>
-<body id="app-body">
+<body>
 
     <div id="video-container">
         <video id="video-preview" autoplay playsinline muted></video>
     </div>
-
-    <!-- UI切り替えボタン -->
-    <button id="toggle-ui-visibility">
-        <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.05-1.465 1.655C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-        </svg>
-    </button>
 
     <!-- プロンプターエリア -->
     <div id="prompter-container">
@@ -262,12 +274,23 @@
         </div>
     </div>
 
-    <!-- 常時表示コントロール -->
+    <!-- メインコントロールバー -->
     <div id="main-controls">
-        <button id="play-pause-btn" class="bg-blue-600 w-12 h-12 rounded-full flex items-center justify-center">
-            <span id="play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg></span>
+        <!-- 1. 再生ボタン -->
+        <button id="play-pause-btn" class="bg-blue-600 w-11 h-11 rounded-full flex items-center justify-center">
+            <span id="play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg></span>
         </button>
+
+        <!-- 2. 録画ボタン (中央) -->
         <button id="record-btn" class="record-btn"></button>
+
+        <!-- 3. 表示・非表示ボタン (右) -->
+        <button id="toggle-ui-visibility">
+            <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.05-1.465 1.655C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+            </svg>
+        </button>
     </div>
 
     <!-- 編集モーダル -->
@@ -308,24 +331,19 @@
         let isUiVisible = true;
         let scrollY = 0, lastTimestamp = 0;
         let mediaRecorder, recordedChunks = [];
+        let recordStartTime = 0;
+        let timerInterval = null;
         
-        // タッチ操作用
         let startY = 0, startScrollY = 0;
         let initialPinchDist = 0;
         let initialFontSize = 0;
 
-        const defaultText = `YouTube 台本プロンプター Portrait v5
+        const defaultText = `ちいくじプロンプターへようこそ！
 
-【縦向き撮影に特化】
-iPhoneを縦に持ったまま撮影してください。
-
-【新機能】
-・カメラ位置の上下調整：バーで映像を上下に動かせます。
-・ビデオ形式切り替え：9:16（全画面）と16:9（横長切り出し）を切り替え可能。
-・文字の左寄せ：読みやすい左寄せレイアウト。
-
-画面をポンとタップすると再生/停止。
-2本の指を広げると文字が大きくなります。
+【機能紹介】
+・録画開始でボタン内に時間が表示されます。
+・録画ボタンを中央、左に再生、右にUI表示切替を配置。
+・設定でスピード、サイズ、カメラ位置を微調整可能。
 
 最初に戻るボタンでいつでもスタート地点へ。
 最高の動画を撮影しましょう！`;
@@ -334,7 +352,6 @@ iPhoneを縦に持ったまま撮影してください。
             updateContent(defaultText);
             setupCamera();
             
-            // スライダーイベント
             spacingRange.oninput = () => {
                 document.documentElement.style.setProperty('--line-spacing', `${spacingRange.value / 16}rem`);
             };
@@ -394,7 +411,6 @@ iPhoneを縦に持ったまま撮影してください。
             requestAnimationFrame(animate);
         }
 
-        // ビデオ形式切り替え
         format916Btn.onclick = () => {
             videoContainer.classList.remove('mode-16-9');
             format916Btn.classList.add('active');
@@ -406,7 +422,6 @@ iPhoneを縦に持ったまま撮影してください。
             format916Btn.classList.remove('active');
         };
 
-        // フォント切り替え修正
         fontSerifBtn.onclick = () => {
             document.body.style.setProperty('--font-main', '"Hiragino Mincho ProN", serif');
             fontSerifBtn.classList.add('active');
@@ -418,10 +433,8 @@ iPhoneを縦に持ったまま撮影してください。
             fontSerifBtn.classList.remove('active');
         };
 
-        // アプリ更新
         refreshAppBtn.onclick = () => { window.location.reload(); };
 
-        // UI表示切り替え
         toggleUiBtn.onclick = (e) => {
             e.stopPropagation();
             isUiVisible = !isUiVisible;
@@ -429,7 +442,6 @@ iPhoneを縦に持ったまま撮影してください。
             toggleUiBtn.style.opacity = isUiVisible ? '1' : '0.4';
         };
 
-        // タッチ操作（スクロール、ピンチズーム、タップ再生）
         document.getElementById('prompter-container').addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
                 initialPinchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
@@ -463,11 +475,10 @@ iPhoneを縦に持ったまま撮影してください。
 
         function updatePlayIcon() {
             playIcon.innerHTML = isPlaying ? 
-                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>' :
-                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
+                '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>' :
+                '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
         }
 
-        // リセット（最初に戻る）
         document.getElementById('reset-btn').onclick = (e) => {
             e.stopPropagation();
             scrollY = 0;
@@ -475,7 +486,6 @@ iPhoneを縦に持ったまま撮影してください。
             updatePlayIcon();
         };
 
-        // 録画
         recordBtn.onclick = (e) => {
             e.stopPropagation();
             if (!isRecording) startRecording(); else stopRecording();
@@ -485,25 +495,50 @@ iPhoneを縦に持ったまま撮影してください。
             recordedChunks = [];
             const stream = video.srcObject;
             if (!stream) return;
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+            
+            try {
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+            } catch (e) {
+                mediaRecorder = new MediaRecorder(stream);
+            }
+
             mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                const mimeType = mediaRecorder.mimeType.includes('mp4') ? 'video/mp4' : 'video/webm';
+                const blob = new Blob(recordedChunks, { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `youtube_recording_${Date.now()}.mp4`;
+                a.download = `chiikuji_recording_${Date.now()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
                 a.click();
             };
+
             mediaRecorder.start();
             isRecording = true;
             recordBtn.classList.add('recording');
+            
+            // タイマー開始
+            recordStartTime = Date.now();
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+            const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const seconds = String(elapsed % 60).padStart(2, '0');
+            recordBtn.innerHTML = `<div>録画中</div><div class="timer-text">${minutes}:${seconds}</div>`;
         }
 
         function stopRecording() {
             if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
             isRecording = false;
             recordBtn.classList.remove('recording');
+            recordBtn.textContent = '';
+            
+            // タイマー停止
+            clearInterval(timerInterval);
+            timerInterval = null;
         }
 
         playBtn.onclick = (e) => { e.stopPropagation(); isPlaying = !isPlaying; updatePlayIcon(); };
