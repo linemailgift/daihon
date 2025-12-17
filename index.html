@@ -45,6 +45,7 @@
             transition: transform 0.1s ease-out;
         }
 
+        /* 16:9モード時：縦画面の中に横長の枠を表示 */
         #video-container.mode-16-9 #video-preview {
             aspect-ratio: 16 / 9;
             height: auto;
@@ -340,10 +341,14 @@
 
         const defaultText = `ちいくじプロンプターへようこそ！
 
+【縦向き固定設定】
+本体を横にしても表示は変わりません。
+常にこの縦向きレイアウトで撮影できます。
+
 【機能紹介】
 ・録画開始でボタン内に時間が表示されます。
-・録画ボタンを中央、左に再生、右にUI表示切替を配置。
-・設定でスピード、サイズ、カメラ位置を微調整可能。
+・録画ボタンを中央、左に再生、右にUI表示切替。
+・設定でスピード、サイズ、カメラ位置を微調整。
 
 最初に戻るボタンでいつでもスタート地点へ。
 最高の動画を撮影しましょう！`;
@@ -517,7 +522,6 @@
             isRecording = true;
             recordBtn.classList.add('recording');
             
-            // タイマー開始
             recordStartTime = Date.now();
             updateTimer();
             timerInterval = setInterval(updateTimer, 1000);
@@ -536,7 +540,6 @@
             recordBtn.classList.remove('recording');
             recordBtn.textContent = '';
             
-            // タイマー停止
             clearInterval(timerInterval);
             timerInterval = null;
         }
