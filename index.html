@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YouTube Teleprompter (Pro V2 - Fixed)</title>
+    <title>YouTube Teleprompter (Final Custom)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -64,12 +64,12 @@
             will-change: transform;
         }
 
-        /* 横向き時の文字コンテンツ (縦書き) */
+        /* 横向き時の文字コンテンツ (縦書き、左から右へ) */
         body.landscape .scrolling-content {
             writing-mode: vertical-rl;
             width: auto;
-            height: 80vh;
-            margin: 10vh 0;
+            height: 90vh;
+            margin: 5vh 0;
             padding: 0;
             display: block;
         }
@@ -78,7 +78,7 @@
         .script-line {
             margin-bottom: 2rem;
             text-align: center;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+            text-shadow: 2px 2px 4px rgba(0,0,0,1); /* 文字を際立たせる */
             line-height: 1.6;
             font-weight: bold;
             opacity: 1;
@@ -92,21 +92,7 @@
             display: inline-block;
         }
 
-        /* グラデーションオーバーレイ */
-        .prompter-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            width: 40%;
-            height: 100%;
-            z-index: 15;
-            pointer-events: none;
-        }
-        body.landscape .prompter-overlay { display: block; }
-        .overlay-right { right: 0; background: linear-gradient(to left, black 40%, transparent); }
-        .overlay-left { left: 0; background: linear-gradient(to right, black 40%, transparent); }
-
-        /* コントロールUI */
+        /* コントロールUI表示管理 */
         #ui-wrapper {
             transition: opacity 0.3s ease, visibility 0.3s ease;
         }
@@ -127,23 +113,27 @@
             padding-bottom: max(20px, env(safe-area-inset-bottom));
         }
 
-        /* UI表示・非表示切り替えボタン */
+        /* UI表示・非表示切り替えボタン (緑色・左配置) */
         #toggle-ui-visibility {
             position: fixed;
             top: 20px;
-            right: 20px;
+            left: 20px;
             z-index: 200;
-            background: rgba(0,0,0,0.5);
-            backdrop-blur: 5px;
-            border: 1px solid rgba(255,255,255,0.2);
-            width: 44px;
-            height: 44px;
+            background: #22c55e; /* Green-500 */
+            box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);
+            border: 2px solid rgba(255,255,255,0.4);
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            opacity: 0.6;
+            opacity: 0.9;
+            transition: all 0.2s;
+        }
+        #toggle-ui-visibility:active {
+            transform: scale(0.9);
         }
 
         .record-btn {
@@ -170,32 +160,19 @@
             z-index: 300;
             padding: 20px;
         }
-
-        .toggle-btn {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            padding: 4px 12px;
-            font-size: 12px;
-        }
-        .toggle-btn.active { background: #3b82f6; border-color: #3b82f6; }
     </style>
 </head>
 <body>
 
     <video id="video-preview" autoplay playsinline muted></video>
 
-    <!-- 表示・非表示切り替えボタン（これは常に残る） -->
+    <!-- 表示・非表示切り替えボタン（左側・緑色） -->
     <button id="toggle-ui-visibility">
-        <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+        <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
             <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.05-1.465 1.655C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
             <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
         </svg>
     </button>
-
-    <!-- グラデーションオーバーレイ -->
-    <div id="overlay-l" class="prompter-overlay overlay-left" style="display:none;"></div>
-    <div id="overlay-r" class="prompter-overlay overlay-right" style="display:none;"></div>
 
     <div id="prompter-container">
         <div id="scrolling-content" class="scrolling-content"></div>
@@ -213,13 +190,6 @@
                         <div class="flex-1">
                             <label class="text-[10px] text-gray-400 block">文字サイズ</label>
                             <input type="range" id="size-range" min="20" max="80" value="44" class="w-full h-6">
-                        </div>
-                    </div>
-                    <div id="landscape-settings" class="flex items-center justify-between border-t border-white/10 pt-2 hidden">
-                        <span class="text-[10px] text-gray-400">カメラ位置 (横向時)</span>
-                        <div class="flex gap-2">
-                            <button id="cam-left-btn" class="toggle-btn">左(L)</button>
-                            <button id="cam-right-btn" class="toggle-btn active">右(R)</button>
                         </div>
                     </div>
                 </div>
@@ -258,40 +228,32 @@
         const uiWrapper = document.getElementById('ui-wrapper');
         const toggleUiBtn = document.getElementById('toggle-ui-visibility');
         const playBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
         const recordBtn = document.getElementById('record-btn');
         const speedRange = document.getElementById('speed-range');
         const sizeRange = document.getElementById('size-range');
         const modal = document.getElementById('edit-modal');
         const scriptInput = document.getElementById('script-input');
-        const camLeftBtn = document.getElementById('cam-left-btn');
-        const camRightBtn = document.getElementById('cam-right-btn');
-        const overlayL = document.getElementById('overlay-l');
-        const overlayR = document.getElementById('overlay-r');
 
         let isPlaying = false;
         let isRecording = false;
         let isLandscape = false;
         let isUiVisible = true;
-        let cameraSide = 'right';
-        let scrollY = 0, scrollX = 0, lastTimestamp = 0;
+        let scrollY = 0, scrollX = -100, lastTimestamp = 0;
         let mediaRecorder, recordedChunks = [];
         let startY = 0, startX = 0, startScrollY = 0, startScrollX = 0;
 
-        const defaultText = `YouTube 台本プロンプター V2
+        const defaultText = `YouTube 台本プロンプター カスタム
 
-横向きにすると縦書きになります。
-複数の行が並んだ状態で、レンズ方向へ流れます。
+横向きにすると「縦書き」で左から右へ流れます。
+右側のダイナミックアイランドを恐れず、端まで文字を表示します。
 
-右側のメニュー表示・非表示ボタンを押すと、
-操作パネルをすべて隠して撮影に集中できます。
+【新機能】
+・左側の「緑色ボタン」で全UIを隠せます。
+・UIが隠れている間も、画面をタップするだけで再生/停止が可能です。
 
-【使い方のヒント】
-1. 録画を開始
-2. メニューを隠す
-3. 最高の表情で話す！
-
-動画は16:9のフルサイズ（1080p）で録画されます。
-プロフェッショナルな動画作成をサポートします。`;
+録画は16:9のフルサイズで行われます。
+カメラを右側にして撮影を開始してください！`;
 
         function init() {
             updateContent(defaultText);
@@ -305,58 +267,28 @@
             isLandscape = window.innerWidth > window.innerHeight;
             if (isLandscape) {
                 document.body.classList.add('landscape');
-                document.getElementById('landscape-settings').classList.remove('hidden');
-                updateOverlays();
                 resetScrollPos();
             } else {
                 document.body.classList.remove('landscape');
-                document.getElementById('landscape-settings').classList.add('hidden');
-                overlayL.style.display = 'none';
-                overlayR.style.display = 'none';
                 scrollY = 0;
             }
-        }
-
-        function updateOverlays() {
-            if (!isLandscape) return;
-            overlayL.style.display = (cameraSide === 'left') ? 'block' : 'none';
-            overlayR.style.display = (cameraSide === 'right') ? 'block' : 'none';
         }
 
         function resetScrollPos() {
             if (isLandscape) {
-                scrollX = (cameraSide === 'right') ? -100 : window.innerWidth + 100;
+                scrollX = -100; // 左端からスタート
             } else {
                 scrollY = 0;
             }
         }
 
-        /**
-         * カメラのセットアップ
-         * デバイスが見つからないエラーへの対策として、段階的なフォールバックを実装
-         */
         async function setupCamera() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                console.error("このブラウザはカメラ機能をサポートしていません。");
-                return;
-            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
             const configs = [
-                // 1. 理想的な設定 (16:9, 高解像度, インカメラ)
-                { 
-                    video: { 
-                        facingMode: 'user', 
-                        width: { ideal: 1920 }, 
-                        height: { ideal: 1080 }, 
-                        aspectRatio: 1.7777777778 
-                    }, 
-                    audio: true 
-                },
-                // 2. 解像度指定を外してインカメラのみ指定
+                { video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, aspectRatio: 1.7777777778 }, audio: true },
                 { video: { facingMode: 'user' }, audio: true },
-                // 3. 基本的なビデオとオーディオ
                 { video: true, audio: true },
-                // 4. ビデオのみ (オーディオデバイスの問題を回避)
                 { video: true }
             ];
 
@@ -364,15 +296,11 @@
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia(config);
                     video.srcObject = stream;
-                    console.log("Camera started with config:", config);
-                    return; // 成功
+                    return;
                 } catch (err) {
-                    console.warn("Attempt failed for config:", config, err.name);
-                    // NotFoundError または他のエラーの場合は次の構成を試す
+                    console.warn("Camera config failed:", config, err.name);
                 }
             }
-
-            alert("カメラまたはマイクが見つかりませんでした。ブラウザの設定で許可されているか確認してください。");
         }
 
         function updateContent(text) {
@@ -396,7 +324,8 @@
                 if (!isLandscape) {
                     scrollY -= speed;
                 } else {
-                    if (cameraSide === 'right') scrollX += speed * 1.5; else scrollX -= speed * 1.5;
+                    // 左から右へ流れる（Xを増加させる）
+                    scrollX += speed * 1.5;
                 }
             }
             render();
@@ -415,27 +344,40 @@
             });
         }
 
-        // UI切り替え
-        toggleUiBtn.onclick = () => {
+        // UI表示切り替え
+        toggleUiBtn.onclick = (e) => {
+            e.stopPropagation(); // 画面タップイベントの発火を防ぐ
             isUiVisible = !isUiVisible;
             uiWrapper.className = isUiVisible ? '' : 'ui-hidden';
-            toggleUiBtn.style.opacity = isUiVisible ? '0.6' : '0.2';
+            toggleUiBtn.style.opacity = isUiVisible ? '0.9' : '0.4';
         };
 
-        // カメラ位置
-        camLeftBtn.onclick = () => { cameraSide = 'left'; camLeftBtn.classList.add('active'); camRightBtn.classList.remove('active'); resetScrollPos(); updateOverlays(); };
-        camRightBtn.onclick = () => { cameraSide = 'right'; camRightBtn.classList.add('active'); camLeftBtn.classList.remove('active'); resetScrollPos(); updateOverlays(); };
+        // 画面タップで再生/停止（UI非表示時も有効）
+        container.onclick = () => {
+            togglePlay();
+        };
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            updatePlayIcon();
+        }
+
+        function updatePlayIcon() {
+            playIcon.innerHTML = isPlaying ? 
+                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>' :
+                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
+        }
 
         // 録画
-        recordBtn.onclick = () => { if (!isRecording) startRecording(); else stopRecording(); };
+        recordBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (!isRecording) startRecording(); else stopRecording();
+        };
 
         function startRecording() {
             recordedChunks = [];
             const stream = video.srcObject;
-            if (!stream) {
-                alert("カメラが有効ではありません。");
-                return;
-            }
+            if (!stream) return;
             let options = { mimeType: 'video/mp4' };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) options = {};
             mediaRecorder = new MediaRecorder(stream, options);
@@ -445,7 +387,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `youtube_recording_${Date.now()}.mp4`;
+                a.download = `teleprompter_${Date.now()}.mp4`;
                 a.click();
             };
             mediaRecorder.start();
@@ -454,16 +396,15 @@
         }
 
         function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
             isRecording = false;
             recordBtn.classList.remove('recording');
         }
 
-        // スワイプ操作
+        // スワイプ操作（自由な位置調整）
         container.ontouchstart = (e) => {
             isPlaying = false;
+            updatePlayIcon();
             startY = e.touches[0].pageY; startX = e.touches[0].pageX;
             startScrollY = scrollY; startScrollX = scrollX;
         };
@@ -473,9 +414,9 @@
             render();
         };
 
-        playBtn.onclick = () => { isPlaying = !isPlaying; };
-        document.getElementById('reset-btn').onclick = () => { resetScrollPos(); isPlaying = false; };
-        document.getElementById('edit-btn').onclick = () => { isPlaying = false; modal.style.display = 'block'; scriptInput.value = Array.from(content.querySelectorAll('.script-line')).map(d => d.textContent).join('\n'); };
+        playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
+        document.getElementById('reset-btn').onclick = (e) => { e.stopPropagation(); resetScrollPos(); isPlaying = false; updatePlayIcon(); };
+        document.getElementById('edit-btn').onclick = (e) => { e.stopPropagation(); isPlaying = false; modal.style.display = 'block'; scriptInput.value = Array.from(content.querySelectorAll('.script-line')).map(d => d.textContent).join('\n'); };
         document.getElementById('close-modal').onclick = () => modal.style.display = 'none';
         document.getElementById('save-script').onclick = () => { updateContent(scriptInput.value); modal.style.display = 'none'; };
 
