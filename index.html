@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YouTube Teleprompter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            height: 100dvh;
+        }
+
+        /* カメラプレビュー */
+        #video-preview {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            transform: scaleX(-1); /* インカメラなので反転 */
+        }
+
+        /* プロンプターのコンテナ */
+        #prompter-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            overflow: hidden;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            touch-action: none; /* カスタムスクロールのため */
+        }
+
+        /* 文字のフェードアウト効果 */
+        .scrolling-content {
+            width: 90%;
+            max-width: 600px;
+            padding-top: 15vh; /* 開始位置 */
+            padding-bottom: 50vh;
+            will-change: transform;
+        }
+
+        /* 各行のスタイル（上に行くほど大きく、下は小さく） */
+        .script-line {
+            margin-bottom: 1.5rem;
+            text-align: center;
+            transition: transform 0.1s linear, opacity 0.1s linear;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            line-height: 1.4;
+            font-weight: bold;
+        }
+
+        /* コントロールUI */
+        .ui-overlay {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            padding: 20px;
+            pointer-events: auto;
+        }
+
+        .record-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #ff4444;
+            border: 4px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .record-btn.recording {
+            border-radius: 10px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        input[type="range"] {
+            accent-color: #3b82f6;
+        }
+
+        /* モーダル */
+        #edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 200;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景カメラ -->
+    <video id="video-preview" autoplay playsinline muted></video>
+
+    <!-- プロンプターエリア -->
+    <div id="prompter-container">
+        <div id="scrolling-content" class="scrolling-content">
+            <!-- テキストがここに挿入される -->
+        </div>
+    </div>
+
+    <!-- UIオーバーレイ -->
+    <div class="ui-overlay">
+        <div class="flex flex-col gap-4 max-w-lg mx-auto">
+            
+            <!-- 設定スライダー -->
+            <div class="grid grid-cols-2 gap-4 bg-black/40 backdrop-blur-md p-3 rounded-xl border border-white/10">
+                <div>
+                    <label class="text-xs text-gray-300 block mb-1">速度</label>
+                    <input type="range" id="speed-range" min="0" max="100" value="30" class="w-full">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-300 block mb-1">文字サイズ</label>
+                    <input type="range" id="size-range" min="20" max="60" value="32" class="w-full">
+                </div>
+            </div>
+
+            <!-- メインコントロール -->
+            <div class="flex items-center justify-between">
+                <button id="edit-btn" class="bg-white/20 p-3 rounded-full backdrop-blur-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                    </svg>
+                </button>
+
+                <div class="flex gap-4 items-center">
+                    <button id="play-pause-btn" class="bg-blue-600 w-12 h-12 rounded-full flex items-center justify-center shadow-lg">
+                        <span id="play-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+                        </span>
+                    </button>
+                    
+                    <button id="record-btn" class="record-btn"></button>
+                </div>
+
+                <button id="reset-btn" class="bg-white/20 p-3 rounded-full backdrop-blur-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編集モーダル -->
+    <div id="edit-modal">
+        <h2 class="text-xl font-bold mb-4">台本を編集</h2>
+        <textarea id="script-input" class="w-full h-2/3 bg-zinc-800 text-white p-4 rounded-lg border border-zinc-700 mb-4" placeholder="ここにYouTubeの台本を貼り付けてください..."></textarea>
+        <div class="flex gap-4">
+            <button id="save-script" class="flex-1 bg-blue-600 py-3 rounded-lg font-bold">適用する</button>
+            <button id="close-modal" class="flex-1 bg-zinc-700 py-3 rounded-lg font-bold">キャンセル</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video-preview');
+        const container = document.getElementById('prompter-container');
+        const content = document.getElementById('scrolling-content');
+        const playBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const recordBtn = document.getElementById('record-btn');
+        const speedRange = document.getElementById('speed-range');
+        const sizeRange = document.getElementById('size-range');
+        const editBtn = document.getElementById('edit-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const modal = document.getElementById('edit-modal');
+        const scriptInput = document.getElementById('script-input');
+        const saveScript = document.getElementById('save-script');
+        const closeModal = document.getElementById('close-modal');
+
+        let isPlaying = false;
+        let isRecording = false;
+        let scrollY = 0;
+        let lastTimestamp = 0;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let startY = 0;
+        let startScrollY = 0;
+
+        // デフォルトテキスト
+        const defaultText = `YouTube 台本プロンプターへようこそ！
+
+画面下の「編集ボタン」から台本を変更できます。
+
+スクロール速度や文字サイズも自由自在。
+
+画面を上下にスワイプすれば
+好きな場所へ巻き戻したり
+先送りをしたりすることもできます。
+
+録画ボタンを押すと、
+インカメラでの自撮り録画が開始されます。
+
+カメラ位置が上にあるiPhoneを想定して
+上の方に行くと文字が大きく、
+下の方は小さくなるように調整されています。
+
+視線を外さずに、最高の動画を撮影しましょう！`;
+
+        // 初期設定
+        function init() {
+            updateContent(defaultText);
+            setupCamera();
+            requestAnimationFrame(animate);
+        }
+
+        // カメラ設定
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user' },
+                    audio: true 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Camera error:", err);
+                alert("カメラとマイクの使用を許可してください。");
+            }
+        }
+
+        // 台本更新
+        function updateContent(text) {
+            content.innerHTML = '';
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                const div = document.createElement('div');
+                div.className = 'script-line';
+                div.textContent = line || ' '; // 空行対策
+                content.appendChild(div);
+            });
+        }
+
+        // アニメーションループ
+        function animate(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const delta = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            if (isPlaying) {
+                const speed = parseFloat(speedRange.value) / 20; // 調整用
+                scrollY -= speed * (delta / 16.67);
+            }
+
+            render();
+            requestAnimationFrame(animate);
+        }
+
+        // 描画処理（パースペクティブ効果）
+        function render() {
+            const baseSize = parseInt(sizeRange.value);
+            const containerHeight = window.innerHeight;
+            const lines = content.querySelectorAll('.script-line');
+            
+            content.style.transform = `translateY(${scrollY}px)`;
+
+            lines.forEach(line => {
+                const rect = line.getBoundingClientRect();
+                const centerY = rect.top + rect.height / 2;
+                
+                // 画面上部(0)から下部(height)までの位置比率 (0 to 1)
+                // 上(0)に近いほど大きく、下(1)に近いほど小さく
+                const ratio = Math.max(0, Math.min(1, centerY / containerHeight));
+                
+                // 画面上部で1.5倍、下部で0.6倍程度のスケール
+                const scale = 1.5 - (ratio * 0.9);
+                const opacity = ratio < 0.1 ? ratio * 10 : (ratio > 0.8 ? (1 - ratio) * 5 : 1);
+
+                line.style.fontSize = `${baseSize}px`;
+                line.style.transform = `scale(${scale})`;
+                line.style.opacity = Math.max(0.1, opacity);
+            });
+        }
+
+        // 再生・停止
+        playBtn.onclick = () => {
+            isPlaying = !isPlaying;
+            playIcon.innerHTML = isPlaying ? 
+                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>' :
+                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
+        };
+
+        // リセット
+        resetBtn.onclick = () => {
+            scrollY = 0;
+            isPlaying = false;
+            playIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
+        };
+
+        // 録画機能
+        recordBtn.onclick = () => {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        };
+
+        function startRecording() {
+            recordedChunks = [];
+            const stream = video.srcObject;
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `recording_${new Date().getTime()}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 100);
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            recordBtn.classList.add('recording');
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            isRecording = false;
+            recordBtn.classList.remove('recording');
+        }
+
+        // スワイプによる手動スクロール
+        container.ontouchstart = (e) => {
+            isPlaying = false;
+            startY = e.touches[0].pageY;
+            startScrollY = scrollY;
+        };
+
+        container.ontouchmove = (e) => {
+            const currentY = e.touches[0].pageY;
+            const diff = currentY - startY;
+            scrollY = startScrollY + diff;
+            render();
+        };
+
+        // 編集モーダル
+        editBtn.onclick = () => {
+            isPlaying = false;
+            modal.style.display = 'block';
+            const currentText = Array.from(content.querySelectorAll('.script-line'))
+                .map(div => div.textContent)
+                .join('\n');
+            scriptInput.value = currentText === ' ' ? '' : currentText;
+        };
+
+        closeModal.onclick = () => {
+            modal.style.display = 'none';
+        };
+
+        saveScript.onclick = () => {
+            updateContent(scriptInput.value || ' ');
+            scrollY = 0;
+            modal.style.display = 'none';
+        };
+
+        // 初期化実行
+        init();
+
+    </script>
+</body>
+</html>
