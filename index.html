@@ -17,7 +17,7 @@
             --line-spacing: 0rem; 
             --cam-scale: 1;
             --cam-y: 0;
-            --bg-color: #000000;
+            --bg-color: #1a1a1a; /* デフォルト：濃いめのグレー */
         }
 
         body {
@@ -38,12 +38,12 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 5; /* 映像より後ろ */
+            z-index: 5;
             overflow: hidden;
             pointer-events: auto;
         }
 
-        /* 2. カメラプレビュー（前面レイヤー：文字よりも手前） */
+        /* 2. カメラプレビュー（前面レイヤー：不透明） */
         #video-container {
             position: fixed;
             top: 0;
@@ -53,9 +53,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 10; /* 文字より前 */
-            pointer-events: none; /* 下の文字操作・スクロールを邪魔しない */
-            opacity: 0.75; /* 文字が透けて見えるように調整 */
+            z-index: 10;
+            pointer-events: none;
+            opacity: 1; /* 不透明に設定 */
             background: transparent;
         }
 
@@ -67,19 +67,18 @@
             transition: transform 0.1s ease-out;
         }
 
-        /* 16:9 形式表示用 */
         #video-container.mode-16-9 #video-preview {
             aspect-ratio: 16 / 9;
             height: auto;
             width: 100%;
         }
 
-        /* スクロールコンテンツ：ノッチ領域（safe-area）の最上部から表示 */
+        /* スクロールコンテンツ：画面端まで表示 */
         .scrolling-content {
             width: 90%;
             max-width: 800px;
             margin: 0 auto;
-            padding-top: 0; /* ノッチ領域の背後まで文字を流す */
+            padding-top: 0;
             padding-bottom: 85vh;
             will-change: transform;
         }
@@ -87,7 +86,7 @@
         .script-line {
             margin-bottom: var(--line-spacing);
             text-align: left;
-            text-shadow: 2px 2px 8px rgba(0,0,0,1), -1px -1px 4px rgba(0,0,0,1);
+            text-shadow: 2px 2px 8px rgba(0,0,0,1);
             line-height: 1.3;
             font-weight: bold;
             word-break: break-all;
@@ -113,14 +112,14 @@
             display: flex;
             gap: 20px;
             align-items: center;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85);
             backdrop-filter: blur(20px);
             padding: 14px 28px;
             border-radius: 50px;
             border: 1px solid rgba(255,255,255,0.2);
         }
 
-        /* 録画ボタン（文字を大きく調整） */
+        /* 録画ボタン（文字を大きく） */
         .record-btn {
             width: 100px;
             height: 100px;
@@ -133,7 +132,7 @@
             align-items: center;
             justify-content: center;
             color: transparent;
-            font-size: 20px; /* 録画中の文字をさらに大きく */
+            font-size: 20px; 
             font-weight: 800;
             line-height: 1.1;
             cursor: pointer;
@@ -199,6 +198,15 @@
             padding-top: env(safe-area-inset-top);
         }
 
+        .toggle-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+        .toggle-btn.active { background: #3b82f6; border-color: #3b82f6; }
+
         input[type="range"] {
             height: 6px;
             -webkit-appearance: none;
@@ -221,16 +229,24 @@
             border-radius: 50%;
             background: none;
         }
+
+        /* 書体切り替えボタン：テキスト書体を固定 */
+        #font-serif-btn {
+            font-family: "Hiragino Mincho ProN", "MS Mincho", serif !important;
+        }
+        #font-sans-btn {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", sans-serif !important;
+        }
     </style>
 </head>
 <body>
 
-    <!-- プロンプター（背面レイヤー：画面最上部まで文字が表示される） -->
+    <!-- プロンプター（背面：画面上部まで表示） -->
     <div id="prompter-container">
         <div id="scrolling-content" class="scrolling-content"></div>
     </div>
 
-    <!-- カメラ（前面レイヤー：文字に重なって表示される） -->
+    <!-- カメラ（前面：不透明） -->
     <div id="video-container">
         <video id="video-preview" autoplay playsinline muted></video>
     </div>
@@ -240,7 +256,7 @@
         <div class="config-card flex flex-col gap-4">
             <div class="grid grid-cols-2 gap-x-6 gap-y-4">
                 <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">速度 (低速微調整)</label>
+                    <label class="text-[10px] text-gray-400 block mb-1">速度</label>
                     <input type="range" id="speed-range" min="0" max="50" value="10" class="w-full">
                 </div>
                 <div>
@@ -248,27 +264,27 @@
                     <input type="range" id="size-range" min="20" max="120" value="48" class="w-full">
                 </div>
                 <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">行間調整 (初期最小)</label>
+                    <label class="text-[10px] text-gray-400 block mb-1">行間</label>
                     <input type="range" id="spacing-range" min="0" max="100" value="0" class="w-full">
                 </div>
                 <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">カメラ上下位置 (中央デフォルト)</label>
+                    <label class="text-[10px] text-gray-400 block mb-1">カメラ上下位置</label>
                     <input type="range" id="cam-y-range" min="-500" max="500" value="0" class="w-full">
                 </div>
                 <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">カメラズーム (画面端まで)</label>
+                    <label class="text-[10px] text-gray-400 block mb-1">カメラズーム</label>
                     <input type="range" id="cam-size-range" min="50" max="300" value="100" class="w-full">
                 </div>
                 <div class="flex items-center gap-4">
                     <div>
                         <label class="text-[10px] text-gray-400 block mb-1">背景色</label>
-                        <input type="color" id="bg-color-picker" value="#000000">
+                        <input type="color" id="bg-color-picker" value="#1a1a1a">
                     </div>
                     <div class="flex-1">
-                        <label class="text-[10px] text-gray-400 block mb-1">形式</label>
+                        <label class="text-[10px] text-gray-400 block mb-1">向き</label>
                         <div class="flex gap-2">
-                            <button id="format-9-16-btn" class="toggle-btn active text-[10px]">9:16</button>
-                            <button id="format-16-9-btn" class="toggle-btn text-[10px]">16:9</button>
+                            <button id="format-9-16-btn" class="toggle-btn active text-[10px]">縦</button>
+                            <button id="format-16-9-btn" class="toggle-btn text-[10px]">横</button>
                         </div>
                     </div>
                 </div>
@@ -302,7 +318,7 @@
         </button>
     </div>
 
-    <!-- 台本編集モーダル -->
+    <!-- 編集モーダル -->
     <div id="edit-modal">
         <h2 class="text-xl font-bold mb-4">台本を編集</h2>
         <textarea id="script-input" class="w-full h-2/3 bg-zinc-800 text-white p-4 rounded-lg border border-zinc-700 mb-4 font-sans"></textarea>
@@ -353,35 +369,35 @@
 
 このアプリに実装されている機能一覧です：
 
-1. 【手前に自分、奥に文字】
-カメラ映像が手前に重なり、文字は背後から流れます。自分の表情を常に確認しながら読めます。
+1. 【前面ビデオ配置（不透明）】
+カメラ映像が文字の手前に重なります。文字は見えなくなりますが、自分の表情を完璧に確認できます。
 
-2. 【ノッチ・ステータスバー領域の活用】
-iPhoneの最上部まで文字が表示されます。画面全域を台本エリアとして使えます。
+2. 【ノッチ領域までの表示】
+iPhoneの最上部、時計や電波の背後まで文字が表示されます。
 
-3. 【超低速スクロール】
+3. 【低速スクロール】
 0〜50の範囲で、非常にゆっくりとしたスピードを精密に調整できます。
 
 4. 【文字カスタマイズ】
-サイズに加え、行間（初期値：最小）をスライダーで変更できます。
+サイズに加え、行間をスライダーで変更できます（初期値：最小）。
 
 5. 【ピンチズーム対応】
-画面を2本指でピンチ（広げる・縮める）することで、直感的に文字サイズを変更できます。
+画面を2本指でピンチすることで、直感的に文字サイズを変更できます。
 
 6. 【タップ操作】
-画面のどこをタップしても再生・停止が切り替わります（UI非表示時も有効）。
+画面のどこをタップしても再生・停止が切り替わります。
 
-7. 【カメラ精密調整】
-ズーム（初期値：フル）と上下位置（初期位置：中央）をバーで変更できます。
+7. 【カメラ調整】
+ズームと上下位置をバーで変更できます（初期位置：中央）。
 
 8. 【録画機能】
 録画中はボタンが白く変化し、大きな文字で「録画中」と経過時間が表示されます。
 
 9. 【背景色＆フォント切り替え】
-背景色を自由に変更でき、明朝体とゴシック体を瞬時に切り替え可能です。
+背景色を自由に変更でき、明朝体とゴシック体を切り替え可能です。
 
 10. 【ビデオ形式】
-SNS用の9:16、YouTube用の16:9を選択して撮影できます。
+縦（9:16）、横（16:9）を選択して撮影できます。
 
 11. 【UI非表示】
 緑のボタンで設定パネルを隠せます。録画・再生ボタンは残り続けます。
@@ -403,35 +419,22 @@ SNS用の9:16、YouTube用の16:9を選択して撮影できます。
             requestAnimationFrame(animate);
         }
 
-        /**
-         * カメラのセットアップ
-         * NotFoundError対策として複数の構成を試行するフォールバックを実装
-         */
         async function setupCamera() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                console.error("Camera API not supported");
-                return;
-            }
-
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
             const constraintsList = [
                 { video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true },
                 { video: { facingMode: 'user' }, audio: true },
                 { video: true, audio: true },
-                { video: true } // オーディオなしでも試行
+                { video: true }
             ];
-
             for (const constraints of constraintsList) {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
                     video.srcObject = stream;
-                    console.log("Camera access successful with:", constraints);
                     return;
-                } catch (err) {
-                    console.warn(`Attempt failed with ${err.name}:`, constraints);
-                    // 次の制約へ
-                }
+                } catch (err) {}
             }
-            alert("カメラデバイスが見つかりませんでした。ブラウザの権限設定を確認してください。");
+            alert("カメラデバイスが見つかりませんでした。");
         }
 
         function updateContent(text) {
@@ -449,25 +452,32 @@ SNS用の9:16、YouTube用の16:9を選択して撮影できます。
             if (!lastTimestamp) lastTimestamp = timestamp;
             const delta = timestamp - lastTimestamp;
             lastTimestamp = timestamp;
-
             if (isPlaying) {
                 const speed = parseFloat(speedRange.value) / 1000 * delta;
                 scrollY -= speed;
             }
-            
             content.style.transform = `translate3d(0, ${scrollY}px, 0)`;
             const size = parseInt(sizeRange.value);
             content.querySelectorAll('.script-line').forEach(line => {
                 line.style.fontSize = `${size}px`;
             });
-            
             requestAnimationFrame(animate);
         }
 
         format916Btn.onclick = () => { videoContainer.classList.remove('mode-16-9'); format916Btn.classList.add('active'); format169Btn.classList.remove('active'); };
         format169Btn.onclick = () => { videoContainer.classList.add('mode-16-9'); format169Btn.classList.add('active'); format916Btn.classList.remove('active'); };
-        fontSerifBtn.onclick = () => { document.body.style.setProperty('--font-main', '"Hiragino Mincho ProN", serif'); fontSerifBtn.classList.add('active'); fontSansBtn.classList.remove('active'); };
-        fontSansBtn.onclick = () => { document.body.style.setProperty('--font-main', '"Hiragino Kaku Gothic ProN", sans-serif'); fontSansBtn.classList.add('active'); fontSerifBtn.classList.remove('active'); };
+        
+        fontSerifBtn.onclick = () => { 
+            document.body.style.setProperty('--font-main', '"Hiragino Mincho ProN", serif'); 
+            fontSerifBtn.classList.add('active'); 
+            fontSansBtn.classList.remove('active'); 
+        };
+        fontSansBtn.onclick = () => { 
+            document.body.style.setProperty('--font-main', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", sans-serif'); 
+            fontSansBtn.classList.add('active'); 
+            fontSerifBtn.classList.remove('active'); 
+        };
+        
         refreshAppBtn.onclick = () => { window.location.reload(); };
 
         toggleUiBtn.onclick = (e) => {
@@ -546,7 +556,6 @@ SNS用の9:16、YouTube用の16:9を選択して撮影できます。
             clearInterval(timerInterval); timerInterval = null;
         }
 
-        playBtn.onclick = (e) => { e.stopPropagation(); isPlaying = !isPlaying; updatePlayIcon(); };
         document.getElementById('edit-btn').onclick = (e) => { e.stopPropagation(); isPlaying = false; modal.style.display = 'block'; scriptInput.value = Array.from(content.querySelectorAll('.script-line')).map(d => d.textContent).join('\n'); };
         document.getElementById('close-modal').onclick = () => modal.style.display = 'none';
         document.getElementById('save-script').onclick = () => { updateContent(scriptInput.value); modal.style.display = 'none'; };
