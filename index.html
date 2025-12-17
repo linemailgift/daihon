@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YouTube Teleprompter</title>
+    <title>YouTube Teleprompter (Pro)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -16,7 +16,7 @@
             height: 100dvh;
         }
 
-        /* カメラプレビュー */
+        /* カメラプレビュー (縦向きデフォルト) */
         #video-preview {
             position: fixed;
             top: 0;
@@ -26,9 +26,23 @@
             object-fit: cover;
             z-index: 1;
             transform: scaleX(-1); /* インカメラなので反転 */
+            transition: all 0.3s ease-in-out;
         }
 
-        /* プロンプターのコンテナ */
+        /* 横向き時のカメラプレビュー */
+        body.landscape #video-preview {
+            width: auto;
+            height: 60%; 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scaleX(-1);
+            border-radius: 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            object-fit: contain;
+        }
+
+        /* プロンプターのコンテナ (縦向きデフォルト) */
         #prompter-container {
             position: absolute;
             top: 0;
@@ -41,19 +55,38 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            touch-action: none; /* カスタムスクロールのため */
+            touch-action: none;
         }
 
-        /* 文字のフェードアウト効果 */
+        /* 横向き時のプロンプターコンテナ */
+        body.landscape #prompter-container {
+            flex-direction: row;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* 文字コンテツ (縦向き) */
         .scrolling-content {
             width: 90%;
             max-width: 600px;
-            padding-top: 15vh; /* 開始位置 */
+            padding-top: 15vh;
             padding-bottom: 50vh;
             will-change: transform;
+            transition: transform 0.1s linear;
         }
 
-        /* 各行のスタイル（上に行くほど大きく、下は小さく） */
+        /* 横向き時の文字コンテンツ */
+        body.landscape .scrolling-content {
+            display: flex;
+            flex-direction: row;
+            width: auto;
+            height: 100%;
+            padding-top: 0;
+            padding-bottom: 0;
+            align-items: center;
+        }
+
+        /* 各行のスタイル */
         .script-line {
             margin-bottom: 1.5rem;
             text-align: center;
@@ -63,6 +96,30 @@
             font-weight: bold;
         }
 
+        body.landscape .script-line {
+            margin-bottom: 0;
+            margin-right: 5rem;
+            margin-left: 5rem;
+            white-space: nowrap;
+            text-align: left;
+        }
+
+        /* 横向き用のブラックグラデーション */
+        .prompter-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            width: 35%;
+            height: 100%;
+            z-index: 15;
+            pointer-events: none;
+        }
+        body.landscape .prompter-overlay {
+            display: block;
+        }
+        .overlay-right { right: 0; background: linear-gradient(to left, black 30%, transparent); }
+        .overlay-left { left: 0; background: linear-gradient(to right, black 30%, transparent); }
+
         /* コントロールUI */
         .ui-overlay {
             position: fixed;
@@ -70,8 +127,9 @@
             left: 0;
             width: 100%;
             z-index: 100;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
             padding: 20px;
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
             pointer-events: auto;
         }
 
@@ -84,7 +142,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s;
         }
 
         .record-btn.recording {
@@ -98,10 +155,6 @@
             100% { opacity: 1; }
         }
 
-        input[type="range"] {
-            accent-color: #3b82f6;
-        }
-
         /* モーダル */
         #edit-modal {
             display: none;
@@ -113,43 +166,64 @@
             background: rgba(0,0,0,0.9);
             z-index: 200;
             padding: 20px;
+            padding-top: max(20px, env(safe-area-inset-top));
+        }
+
+        .toggle-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .toggle-btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
         }
     </style>
 </head>
 <body>
 
-    <!-- 背景カメラ -->
     <video id="video-preview" autoplay playsinline muted></video>
 
-    <!-- プロンプターエリア -->
+    <!-- グラデーションオーバーレイ -->
+    <div id="overlay-l" class="prompter-overlay overlay-left" style="display:none;"></div>
+    <div id="overlay-r" class="prompter-overlay overlay-right" style="display:none;"></div>
+
     <div id="prompter-container">
-        <div id="scrolling-content" class="scrolling-content">
-            <!-- テキストがここに挿入される -->
-        </div>
+        <div id="scrolling-content" class="scrolling-content"></div>
     </div>
 
-    <!-- UIオーバーレイ -->
     <div class="ui-overlay">
-        <div class="flex flex-col gap-4 max-w-lg mx-auto">
+        <div class="flex flex-col gap-3 max-w-lg mx-auto">
             
-            <!-- 設定スライダー -->
-            <div class="grid grid-cols-2 gap-4 bg-black/40 backdrop-blur-md p-3 rounded-xl border border-white/10">
-                <div>
-                    <label class="text-xs text-gray-300 block mb-1">速度</label>
-                    <input type="range" id="speed-range" min="0" max="100" value="30" class="w-full">
+            <!-- 設定パネル -->
+            <div class="bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-400 block">速度</label>
+                        <input type="range" id="speed-range" min="0" max="100" value="30" class="w-full h-6">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-400 block">文字サイズ</label>
+                        <input type="range" id="size-range" min="20" max="80" value="36" class="w-full h-6">
+                    </div>
                 </div>
-                <div>
-                    <label class="text-xs text-gray-300 block mb-1">文字サイズ</label>
-                    <input type="range" id="size-range" min="20" max="60" value="32" class="w-full">
+                <!-- カメラ位置切り替え（横向き用） -->
+                <div id="landscape-settings" class="flex items-center justify-between border-t border-white/10 pt-2 hidden">
+                    <span class="text-[10px] text-gray-400">カメラ位置 (横向時)</span>
+                    <div class="flex gap-2">
+                        <button id="cam-left-btn" class="toggle-btn">左(L)</button>
+                        <button id="cam-right-btn" class="toggle-btn active">右(R)</button>
+                    </div>
                 </div>
             </div>
 
             <!-- メインコントロール -->
             <div class="flex items-center justify-between">
-                <button id="edit-btn" class="bg-white/20 p-3 rounded-full backdrop-blur-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-                    </svg>
+                <button id="edit-btn" class="bg-white/10 p-3 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
                 </button>
 
                 <div class="flex gap-4 items-center">
@@ -158,15 +232,11 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
                         </span>
                     </button>
-                    
                     <button id="record-btn" class="record-btn"></button>
                 </div>
 
-                <button id="reset-btn" class="bg-white/20 p-3 rounded-full backdrop-blur-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                    </svg>
+                <button id="reset-btn" class="bg-white/10 p-3 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
                 </button>
             </div>
         </div>
@@ -175,7 +245,7 @@
     <!-- 編集モーダル -->
     <div id="edit-modal">
         <h2 class="text-xl font-bold mb-4">台本を編集</h2>
-        <textarea id="script-input" class="w-full h-2/3 bg-zinc-800 text-white p-4 rounded-lg border border-zinc-700 mb-4" placeholder="ここにYouTubeの台本を貼り付けてください..."></textarea>
+        <textarea id="script-input" class="w-full h-2/3 bg-zinc-800 text-white p-4 rounded-lg border border-zinc-700 mb-4"></textarea>
         <div class="flex gap-4">
             <button id="save-script" class="flex-1 bg-blue-600 py-3 rounded-lg font-bold">適用する</button>
             <button id="close-modal" class="flex-1 bg-zinc-700 py-3 rounded-lg font-bold">キャンセル</button>
@@ -197,111 +267,161 @@
         const scriptInput = document.getElementById('script-input');
         const saveScript = document.getElementById('save-script');
         const closeModal = document.getElementById('close-modal');
+        const camLeftBtn = document.getElementById('cam-left-btn');
+        const camRightBtn = document.getElementById('cam-right-btn');
+        const overlayL = document.getElementById('overlay-l');
+        const overlayR = document.getElementById('overlay-r');
+        const landscapeSettings = document.getElementById('landscape-settings');
 
         let isPlaying = false;
         let isRecording = false;
+        let isLandscape = false;
+        let cameraSide = 'right'; // 'left' or 'right'
         let scrollY = 0;
+        let scrollX = 0;
         let lastTimestamp = 0;
         let mediaRecorder;
         let recordedChunks = [];
-        let startY = 0;
-        let startScrollY = 0;
+        let startY = 0, startX = 0, startScrollY = 0, startScrollX = 0;
 
-        // デフォルトテキスト
-        const defaultText = `YouTube 台本プロンプターへようこそ！
+        const defaultText = `YouTube プロンプター Pro へようこそ！
 
-画面下の「編集ボタン」から台本を変更できます。
+iPhoneを横向きにすると、カメラ位置に合わせた横スクロールに切り替わります。
 
-スクロール速度や文字サイズも自由自在。
+カメラが右にあるなら「R」設定。文字は左から右へ。
+カメラが左にあるなら「L」設定。文字は右から左へ。
 
-画面を上下にスワイプすれば
-好きな場所へ巻き戻したり
-先送りをしたりすることもできます。
+常にレンズの近くで文字が大きくなるため、
+視線をレンズに固定したまま自然に話せます。
 
-録画ボタンを押すと、
-インカメラでの自撮り録画が開始されます。
+設定パネルから速度、サイズ、カメラ位置を調整してください。
+最高の動画作成をサポートします！`;
 
-カメラ位置が上にあるiPhoneを想定して
-上の方に行くと文字が大きく、
-下の方は小さくなるように調整されています。
-
-視線を外さずに、最高の動画を撮影しましょう！`;
-
-        // 初期設定
         function init() {
             updateContent(defaultText);
             setupCamera();
+            checkOrientation();
+            window.addEventListener('resize', checkOrientation);
             requestAnimationFrame(animate);
         }
 
-        // カメラ設定
+        function checkOrientation() {
+            isLandscape = window.innerWidth > window.innerHeight;
+            if (isLandscape) {
+                document.body.classList.add('landscape');
+                landscapeSettings.classList.remove('hidden');
+                updateOverlays();
+                if (cameraSide === 'right') scrollX = -100; else scrollX = window.innerWidth + 100;
+            } else {
+                document.body.classList.remove('landscape');
+                landscapeSettings.classList.add('hidden');
+                overlayL.style.display = 'none';
+                overlayR.style.display = 'none';
+                scrollY = 0;
+            }
+            render();
+        }
+
+        function updateOverlays() {
+            if (!isLandscape) return;
+            overlayL.style.display = (cameraSide === 'left') ? 'block' : 'none';
+            overlayR.style.display = (cameraSide === 'right') ? 'block' : 'none';
+        }
+
         async function setupCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'user' },
-                    audio: true 
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
                 video.srcObject = stream;
-            } catch (err) {
-                console.error("Camera error:", err);
-                alert("カメラとマイクの使用を許可してください。");
-            }
+            } catch (err) { alert("カメラ許可が必要です"); }
         }
 
-        // 台本更新
         function updateContent(text) {
             content.innerHTML = '';
-            const lines = text.split('\n');
-            lines.forEach(line => {
+            text.split('\n').forEach(line => {
                 const div = document.createElement('div');
                 div.className = 'script-line';
-                div.textContent = line || ' '; // 空行対策
+                div.textContent = line || ' ';
                 content.appendChild(div);
             });
+            scrollY = 0;
+            scrollX = (cameraSide === 'right') ? -100 : window.innerWidth + 100;
         }
 
-        // アニメーションループ
         function animate(timestamp) {
             if (!lastTimestamp) lastTimestamp = timestamp;
             const delta = timestamp - lastTimestamp;
             lastTimestamp = timestamp;
 
             if (isPlaying) {
-                const speed = parseFloat(speedRange.value) / 20; // 調整用
-                scrollY -= speed * (delta / 16.67);
+                const speed = parseFloat(speedRange.value) / 20 * (delta / 16.67);
+                if (!isLandscape) {
+                    scrollY -= speed;
+                } else {
+                    // カメラが右(R)なら左から右へ流れる(X増加)
+                    // カメラが左(L)なら右から左へ流れる(X減少)
+                    if (cameraSide === 'right') scrollX += speed * 1.5; else scrollX -= speed * 1.5;
+                }
             }
-
             render();
             requestAnimationFrame(animate);
         }
 
-        // 描画処理（パースペクティブ効果）
         function render() {
             const baseSize = parseInt(sizeRange.value);
-            const containerHeight = window.innerHeight;
+            const w = window.innerWidth, h = window.innerHeight;
             const lines = content.querySelectorAll('.script-line');
             
-            content.style.transform = `translateY(${scrollY}px)`;
-
-            lines.forEach(line => {
-                const rect = line.getBoundingClientRect();
-                const centerY = rect.top + rect.height / 2;
-                
-                // 画面上部(0)から下部(height)までの位置比率 (0 to 1)
-                // 上(0)に近いほど大きく、下(1)に近いほど小さく
-                const ratio = Math.max(0, Math.min(1, centerY / containerHeight));
-                
-                // 画面上部で1.5倍、下部で0.6倍程度のスケール
-                const scale = 1.5 - (ratio * 0.9);
-                const opacity = ratio < 0.1 ? ratio * 10 : (ratio > 0.8 ? (1 - ratio) * 5 : 1);
-
-                line.style.fontSize = `${baseSize}px`;
-                line.style.transform = `scale(${scale})`;
-                line.style.opacity = Math.max(0.1, opacity);
-            });
+            if (!isLandscape) {
+                content.style.transform = `translate3d(0, ${scrollY}px, 0)`;
+                lines.forEach(line => {
+                    const r = line.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (r.top + r.height/2) / h));
+                    const scale = 1.5 - (ratio * 0.9);
+                    line.style.fontSize = `${baseSize}px`;
+                    line.style.transform = `scale(${scale})`;
+                    line.style.opacity = ratio < 0.1 ? ratio*10 : (ratio > 0.8 ? (1-ratio)*5 : 1);
+                });
+            } else {
+                content.style.transform = `translate3d(${scrollX}px, 0, 0)`;
+                lines.forEach(line => {
+                    const r = line.getBoundingClientRect();
+                    const centerX = r.left + r.width / 2;
+                    const ratio = Math.max(0, Math.min(1, centerX / w));
+                    
+                    // カメラ側(R=1.0, L=0.0)で最大スケール
+                    let scale;
+                    if (cameraSide === 'right') {
+                        scale = 0.6 + (ratio * 1.2);
+                        line.style.transformOrigin = 'right center';
+                    } else {
+                        scale = 0.6 + ((1 - ratio) * 1.2);
+                        line.style.transformOrigin = 'left center';
+                    }
+                    
+                    const opacity = ratio < 0.05 || ratio > 0.95 ? 0.2 : 1;
+                    line.style.fontSize = `${baseSize}px`;
+                    line.style.transform = `scale(${scale})`;
+                    line.style.opacity = opacity;
+                });
+            }
         }
 
-        // 再生・停止
+        // カメラ向きスイッチ
+        camLeftBtn.onclick = () => {
+            cameraSide = 'left';
+            camLeftBtn.classList.add('active');
+            camRightBtn.classList.remove('active');
+            scrollX = window.innerWidth + 50;
+            updateOverlays();
+        };
+        camRightBtn.onclick = () => {
+            cameraSide = 'right';
+            camRightBtn.classList.add('active');
+            camLeftBtn.classList.remove('active');
+            scrollX = -50;
+            updateOverlays();
+        };
+
         playBtn.onclick = () => {
             isPlaying = !isPlaying;
             playIcon.innerHTML = isPlaying ? 
@@ -309,46 +429,31 @@
                 '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
         };
 
-        // リセット
         resetBtn.onclick = () => {
             scrollY = 0;
+            scrollX = (cameraSide === 'right') ? -50 : window.innerWidth + 50;
             isPlaying = false;
-            playIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
         };
 
-        // 録画機能
         recordBtn.onclick = () => {
-            if (!isRecording) {
-                startRecording();
-            } else {
-                stopRecording();
-            }
+            if (!isRecording) startRecording(); else stopRecording();
         };
 
         function startRecording() {
             recordedChunks = [];
             const stream = video.srcObject;
-            mediaRecorder = new MediaRecorder(stream);
-
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-
+            let options = { mimeType: 'video/mp4' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) options = {};
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType.includes('mp4') ? 'video/mp4' : 'video/webm' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.style.display = 'none';
                 a.href = url;
-                a.download = `recording_${new Date().getTime()}.webm`;
-                document.body.appendChild(a);
+                a.download = `teleprompter_${Date.now()}.mp4`;
                 a.click();
-                setTimeout(() => {
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                }, 100);
             };
-
             mediaRecorder.start();
             isRecording = true;
             recordBtn.classList.add('recording');
@@ -360,43 +465,30 @@
             recordBtn.classList.remove('recording');
         }
 
-        // スワイプによる手動スクロール
         container.ontouchstart = (e) => {
             isPlaying = false;
-            startY = e.touches[0].pageY;
-            startScrollY = scrollY;
+            startY = e.touches[0].pageY; startX = e.touches[0].pageX;
+            startScrollY = scrollY; startScrollX = scrollX;
         };
 
         container.ontouchmove = (e) => {
-            const currentY = e.touches[0].pageY;
-            const diff = currentY - startY;
-            scrollY = startScrollY + diff;
+            if (!isLandscape) {
+                scrollY = startScrollY + (e.touches[0].pageY - startY);
+            } else {
+                scrollX = startScrollX + (e.touches[0].pageX - startX);
+            }
             render();
         };
 
-        // 編集モーダル
         editBtn.onclick = () => {
             isPlaying = false;
             modal.style.display = 'block';
-            const currentText = Array.from(content.querySelectorAll('.script-line'))
-                .map(div => div.textContent)
-                .join('\n');
-            scriptInput.value = currentText === ' ' ? '' : currentText;
+            scriptInput.value = Array.from(content.querySelectorAll('.script-line')).map(d => d.textContent).join('\n');
         };
+        closeModal.onclick = () => modal.style.display = 'none';
+        saveScript.onclick = () => { updateContent(scriptInput.value); modal.style.display = 'none'; };
 
-        closeModal.onclick = () => {
-            modal.style.display = 'none';
-        };
-
-        saveScript.onclick = () => {
-            updateContent(scriptInput.value || ' ');
-            scrollY = 0;
-            modal.style.display = 'none';
-        };
-
-        // 初期化実行
         init();
-
     </script>
 </body>
 </html>
