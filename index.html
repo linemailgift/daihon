@@ -13,9 +13,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --font-main: "Hiragino Mincho ProN", "MS Mincho", serif;
+            /* 初期設定：ゴシック体、ズーム0.6、濃いグレー背景 */
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", sans-serif;
             --line-spacing: 0rem; 
-            --cam-scale: 1;
+            --cam-scale: 0.6;
             --cam-y: 0;
             --bg-color: #1a1a1a; 
         }
@@ -23,12 +24,26 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: var(--bg-color);
+            background-color: #000; /* PC表示時の外側背景 */
             color: #fff;
             font-family: var(--font-main);
             overflow: hidden;
             height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* PCでも縦長を維持するためのコンテナ */
+        #app-shell {
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            position: relative;
+            background-color: var(--bg-color);
+            overflow: hidden;
             touch-action: none;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
         }
 
         /* 1. プロンプター（背面レイヤー） */
@@ -45,7 +60,7 @@
 
         /* 2. カメラプレビュー（前面レイヤー：不透明） */
         #video-container {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
@@ -63,12 +78,11 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            /* translateYの方向を反転（-1を掛ける） */
             transform: scaleX(-1) scale(var(--cam-scale)) translateY(calc(var(--cam-y) * -1px));
             transition: transform 0.1s ease-out;
         }
 
-        /* 16:9 形式表示 */
+        /* 横（16:9）形式表示 */
         #video-container.mode-16-9 #video-preview {
             aspect-ratio: 16 / 9;
             height: auto;
@@ -79,7 +93,7 @@
             width: 90%;
             max-width: 800px;
             margin: 0 auto;
-            padding-top: 0;
+            padding-top: env(safe-area-inset-top); /* ノッチ領域まで表示 */
             padding-bottom: 85vh;
             will-change: transform;
         }
@@ -103,9 +117,9 @@
             pointer-events: none;
         }
 
-        /* メインコントロール */
+        /* 下部メインコントロール */
         #main-controls {
-            position: fixed;
+            position: absolute;
             bottom: max(30px, env(safe-area-inset-bottom));
             left: 50%;
             transform: translateX(-50%);
@@ -118,11 +132,14 @@
             padding: 14px 28px;
             border-radius: 50px;
             border: 1px solid rgba(255,255,255,0.2);
+            width: fit-content;
+            white-space: nowrap;
         }
 
+        /* 録画ボタン（文字表示用） */
         .record-btn {
-            width: 100px;
-            height: 100px;
+            width: 110px; /* 少し大きく */
+            height: 110px;
             border-radius: 50%;
             background-color: #ff4444;
             border: 4px solid #fff;
@@ -131,24 +148,28 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: transparent;
-            font-size: 20px; 
-            font-weight: 800;
+            color: white; 
+            font-size: 22px; /* 文字をさらに大きく */
+            font-weight: 900;
             line-height: 1.1;
             cursor: pointer;
             overflow: hidden;
-            box-shadow: 0 0 20px rgba(255,0,0,0.3);
+            box-shadow: 0 0 25px rgba(255,0,0,0.4);
         }
 
         .record-btn.recording {
             background-color: #fff;
-            color: #ff4444;
-            border-radius: 16px;
+            color: #ff4444 !important;
+            border-radius: 18px;
             transform: scale(0.95);
             animation: pulse-border 1.5s infinite;
         }
 
-        .timer-text { font-family: monospace; font-size: 15px; margin-top: 4px; font-weight: bold; }
+        .record-btn:not(.recording) {
+            color: transparent;
+        }
+
+        .timer-text { font-family: monospace; font-size: 18px; margin-top: 4px; font-weight: bold; } /* タイマー拡大 */
 
         @keyframes pulse-border {
             0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
@@ -158,8 +179,8 @@
 
         #toggle-ui-visibility {
             background: #22c55e;
-            width: 44px;
-            height: 44px;
+            width: 50px; /* 少し大きく */
+            height: 50px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -173,21 +194,21 @@
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255,255,255,0.2);
             border-radius: 24px;
-            padding: 16px;
+            padding: 20px; /* パディング増加 */
             width: 95%;
-            max-width: 500px;
-            position: fixed;
-            bottom: 160px;
+            max-width: 460px;
+            position: absolute;
+            bottom: 170px; /* ボタンが大きくなった分調整 */
             left: 50%;
             transform: translateX(-50%);
             z-index: 140;
-            max-height: 45vh;
+            max-height: 48vh;
             overflow-y: auto;
         }
 
         #edit-modal {
             display: none;
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
@@ -202,21 +223,21 @@
             background: rgba(255,255,255,0.1);
             border: 1px solid rgba(255,255,255,0.3);
             border-radius: 8px;
-            padding: 6px 10px;
-            font-size: 13px;
+            padding: 8px 12px; /* パディング増加 */
+            font-size: 14px; /* 文字拡大 */
         }
         .toggle-btn.active { background: #3b82f6; border-color: #3b82f6; }
 
         input[type="range"] {
-            height: 6px;
+            height: 8px; /* 太く */
             -webkit-appearance: none;
             background: rgba(255,255,255,0.2);
-            border-radius: 3px;
+            border-radius: 4px;
         }
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             background: #fff;
             border-radius: 50%;
         }
@@ -224,103 +245,105 @@
         input[type="color"] {
             -webkit-appearance: none;
             border: none;
-            width: 34px;
-            height: 34px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             background: none;
         }
 
-        /* ボタンの書体固定 */
+        /* 書体固定ボタン */
         #font-serif-btn { font-family: "Hiragino Mincho ProN", serif !important; }
         #font-sans-btn { font-family: sans-serif !important; }
     </style>
 </head>
 <body>
 
-    <!-- 1. 背面：プロンプター -->
-    <div id="prompter-container">
-        <div id="scrolling-content" class="scrolling-content"></div>
-    </div>
+    <div id="app-shell">
+        <!-- 1. 背面：プロンプター -->
+        <div id="prompter-container">
+            <div id="scrolling-content" class="scrolling-content"></div>
+        </div>
 
-    <!-- 2. 前面：カメラ（横向きデフォルト） -->
-    <div id="video-container" class="mode-16-9">
-        <video id="video-preview" autoplay playsinline muted></video>
-    </div>
+        <!-- 2. 前面：カメラ（横向き・16:9デフォルト） -->
+        <div id="video-container" class="mode-16-9">
+            <video id="video-preview" autoplay playsinline muted></video>
+        </div>
 
-    <!-- 設定パネル -->
-    <div id="settings-panel">
-        <div class="config-card flex flex-col gap-4">
-            <div class="grid grid-cols-2 gap-x-6 gap-y-4">
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">速度</label>
-                    <input type="range" id="speed-range" min="0" max="50" value="10" class="w-full">
-                </div>
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">文字サイズ</label>
-                    <input type="range" id="size-range" min="20" max="120" value="48" class="w-full">
-                </div>
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">行間</label>
-                    <input type="range" id="spacing-range" min="0" max="100" value="0" class="w-full">
-                </div>
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">カメラ上下位置</label>
-                    <input type="range" id="cam-y-range" min="-500" max="500" value="0" class="w-full">
-                </div>
-                <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">カメラズーム</label>
-                    <input type="range" id="cam-size-range" min="50" max="300" value="100" class="w-full">
-                </div>
-                <div class="flex items-center gap-4">
+        <!-- 設定パネル -->
+        <div id="settings-panel">
+            <div class="config-card flex flex-col gap-5">
+                <div class="grid grid-cols-2 gap-x-6 gap-y-5">
                     <div>
-                        <label class="text-[10px] text-gray-400 block mb-1">背景色</label>
-                        <input type="color" id="bg-color-picker" value="#1a1a1a">
+                        <label class="text-xs text-gray-300 block mb-1.5">速度</label>
+                        <input type="range" id="speed-range" min="0" max="50" value="10" class="w-full">
                     </div>
-                    <div class="flex-1">
-                        <label class="text-[10px] text-gray-400 block mb-1">向き</label>
-                        <div class="flex gap-2">
-                            <button id="format-9-16-btn" class="toggle-btn text-[10px]">縦</button>
-                            <button id="format-16-9-btn" class="toggle-btn active text-[10px]">横</button>
+                    <div>
+                        <label class="text-xs text-gray-300 block mb-1.5">文字サイズ</label>
+                        <input type="range" id="size-range" min="20" max="120" value="48" class="w-full">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-300 block mb-1.5">行間</label>
+                        <input type="range" id="spacing-range" min="0" max="100" value="0" class="w-full">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-300 block mb-1.5">カメラ上下位置</label>
+                        <input type="range" id="cam-y-range" min="-500" max="500" value="0" class="w-full">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-300 block mb-1.5">カメラズーム</label>
+                        <input type="range" id="cam-size-range" min="30" max="300" value="60" class="w-full">
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div>
+                            <label class="text-xs text-gray-300 block mb-1.5">背景色</label>
+                            <input type="color" id="bg-color-picker" value="#1a1a1a">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs text-gray-300 block mb-1.5">向き</label>
+                            <div class="flex gap-2">
+                                <button id="format-9-16-btn" class="toggle-btn text-sm">縦</button>
+                                <button id="format-16-9-btn" class="toggle-btn active text-sm">横</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="flex flex-wrap items-center justify-between border-t border-white/10 pt-3 gap-2">
-                <div class="flex gap-2">
-                    <button id="font-serif-btn" class="toggle-btn active">明朝</button>
-                    <button id="font-sans-btn" class="toggle-btn">ゴシック</button>
-                </div>
-                <div class="flex gap-2">
-                    <button id="edit-btn" class="bg-white/10 p-2 rounded-lg text-xs">台本編集</button>
-                    <button id="reset-btn" class="bg-white/10 p-2 rounded-lg text-xs font-bold">冒頭に戻る</button>
-                    <button id="refresh-app-btn" class="bg-green-600/30 border border-green-500/50 p-2 rounded-lg text-xs font-bold">更新</button>
+                
+                <div class="flex flex-wrap items-center justify-between border-t border-white/10 pt-4 gap-2">
+                    <div class="flex gap-2">
+                        <button id="font-serif-btn" class="toggle-btn text-sm">明朝</button>
+                        <button id="font-sans-btn" class="toggle-btn active text-sm">ゴシック</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="edit-btn" class="bg-white/10 p-2.5 rounded-lg text-sm">台本編集</button>
+                        <button id="reset-btn" class="bg-white/10 p-2.5 rounded-lg text-sm font-bold">冒頭に戻る</button>
+                        <button id="refresh-app-btn" class="bg-green-600/30 border border-green-500/50 p-2.5 rounded-lg text-sm font-bold">更新</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- メインコントロール -->
-    <div id="main-controls">
-        <button id="play-pause-btn" class="bg-blue-600 w-11 h-11 rounded-full flex items-center justify-center">
-            <span id="play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg></span>
-        </button>
-        <button id="record-btn" class="record-btn"></button>
-        <button id="toggle-ui-visibility">
-            <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.05-1.465 1.655C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-            </svg>
-        </button>
-    </div>
+        <!-- メインコントロール -->
+        <div id="main-controls">
+            <button id="play-pause-btn" class="bg-blue-600 w-12 h-12 rounded-full flex items-center justify-center">
+                <span id="play-icon"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg></span>
+            </button>
+            <button id="record-btn" class="record-btn"></button>
+            <button id="toggle-ui-visibility">
+                <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.05-1.465 1.655C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                </svg>
+            </button>
+        </div>
 
-    <!-- 台本編集モーダル -->
-    <div id="edit-modal">
-        <h2 class="text-xl font-bold mb-4">台本を編集</h2>
-        <textarea id="script-input" class="w-full h-2/3 bg-zinc-800 text-white p-4 rounded-lg border border-zinc-700 mb-4 font-sans"></textarea>
-        <div class="flex gap-4">
-            <button id="save-script" class="flex-1 bg-blue-600 py-3 rounded-lg font-bold">適用する</button>
-            <button id="close-modal" class="flex-1 bg-zinc-700 py-3 rounded-lg font-bold">キャンセル</button>
+        <!-- 台本編集モーダル -->
+        <div id="edit-modal">
+            <h2 class="text-xl font-bold mb-4">台本を編集</h2>
+            <textarea id="script-input" class="w-full h-2/3 bg-zinc-800 text-white p-4 rounded-lg border border-zinc-700 mb-4 font-sans text-lg"></textarea>
+            <div class="flex gap-4">
+                <button id="save-script" class="flex-1 bg-blue-600 py-3 rounded-lg font-bold text-lg">適用する</button>
+                <button id="close-modal" class="flex-1 bg-zinc-700 py-3 rounded-lg font-bold text-lg">キャンセル</button>
+            </div>
         </div>
     </div>
 
@@ -356,33 +379,49 @@
         let mediaRecorder, recordedChunks = [];
         let recordStartTime = 0;
         let timerInterval = null;
+        let fileCounter = 1; 
         
         let startY = 0, startScrollY = 0;
         let initialPinchDist = 0;
         let initialFontSize = 0;
 
-        const initialGuideText = `ちいくじプロンプター：ガイド
+        // 【最新情報まとめ】機能一覧台本
+        const latestGuide = `ちいくじプロンプター：最新機能一覧
 
-修正が完了しました。
+現在実装されている全ての機能と設定値のまとめです：
 
-1. 再生ボタンの修正：
-画面タップ、または再生ボタンで確実に開始・停止が可能です。
+1. 【前面ビデオ配置（不透明）】
+カメラ映像は常に最前面。表情を確認しながら、背後に流れる台本を読めます。
 
-2. カメラ向き：
-初期設定を「横（横長形式）」に変更しました。
+2. 【PC表示の最適化】
+パソコンの横長画面でも、常に中央にスマートフォンサイズの縦長レイアウトを維持します。
 
-3. カメラ位置の反転：
-スライダーを右に動かすと映像が上に、左に動かすと下に移動するように変更しました。
+3. 【録画＆台本の完全連動】
+録画開始ボタンで台本がスタートし、停止ボタンで台本もピタッと止まります。
 
-操作方法：
-・【タップ】再生 / 停止
-・【2本指ピンチ】文字サイズの変更
-・【緑ボタン】設定の表示 / 非表示
+4. 【ファイル名の自動管理】
+ダウンロードされる動画は「chiikuji_年月日_001.mp4」の形式。撮るたびに連番が増えていきます。
 
-最高の動画を撮影しましょう！`;
+5. 【初期設定の最適化】
+・書体：初期はゴシック体
+・ズーム：初期は少し小さめ（60%）
+・行間：初期は最小（0）
+・背景色：初期は濃いめのグレー
+
+6. 【直感的な調整バー】
+・速度：低速での読み上げを精密に調整可能
+・カメラ位置：バーを右に動かすと映像が上に移動
+・UI拡大：メニュー全体の文字を一回り大きく調整しました。
+
+7. 【操作ガイド】
+・【画面タップ】再生/停止（録画中でない時）
+・【2本指ピンチ】文字サイズを直感的に拡大縮小
+・【目玉ボタン】設定パネルの表示/非表示を切り替え
+
+撮影の準備ができたら「録画ボタン」でスタートしてください！`;
 
         function init() {
-            updateContent(initialGuideText);
+            updateContent(latestGuide);
             setupCamera();
             
             spacingRange.oninput = () => { document.documentElement.style.setProperty('--line-spacing', `${spacingRange.value / 16}rem`); };
@@ -395,20 +434,19 @@
 
         async function setupCamera() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-            const constraintsList = [
+            const configs = [
                 { video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true },
                 { video: { facingMode: 'user' }, audio: true },
                 { video: true, audio: true },
                 { video: true }
             ];
-            for (const constraints of constraintsList) {
+            for (const config of configs) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    const stream = await navigator.mediaDevices.getUserMedia(config);
                     video.srcObject = stream;
                     return;
                 } catch (err) {}
             }
-            alert("カメラが見つかりませんでした。");
         }
 
         function updateContent(text) {
@@ -441,15 +479,15 @@
             requestAnimationFrame(animate);
         }
 
-        function togglePlay() {
-            isPlaying = !isPlaying;
+        function togglePlay(state) {
+            isPlaying = (state !== undefined) ? state : !isPlaying;
             updatePlayIcon();
         }
 
         function updatePlayIcon() {
             playIcon.innerHTML = isPlaying ? 
-                '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>' :
-                '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
+                '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>' :
+                '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>';
         }
 
         format916Btn.onclick = () => { videoContainer.classList.remove('mode-16-9'); format916Btn.classList.add('active'); format169Btn.classList.remove('active'); };
@@ -472,8 +510,7 @@
                 initialPinchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
                 initialFontSize = parseInt(sizeRange.value);
             } else {
-                isPlaying = false;
-                updatePlayIcon();
+                togglePlay(false);
                 startY = e.touches[0].pageY;
                 startScrollY = scrollY;
             }
@@ -493,26 +530,21 @@
             e.preventDefault();
         }, { passive: false });
 
-        prompterContainer.addEventListener('click', () => {
-            togglePlay();
-        });
+        prompterContainer.addEventListener('click', () => { togglePlay(); });
+        playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
+        document.getElementById('reset-btn').onclick = (e) => { e.stopPropagation(); scrollY = 0; togglePlay(false); };
 
-        playBtn.onclick = (e) => { 
-            e.stopPropagation(); 
-            togglePlay();
-        };
-
-        document.getElementById('reset-btn').onclick = (e) => { 
-            e.stopPropagation(); 
-            scrollY = 0; 
-            isPlaying = false; 
-            updatePlayIcon(); 
-        };
-
-        recordBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (!isRecording) startRecording(); else stopRecording();
-        };
+        function getFileName() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            const numStr = String(fileCounter).padStart(3, '0');
+            const name = `chiikuji_${y}${m}${d}_${numStr}`;
+            fileCounter++;
+            if (fileCounter > 999) fileCounter = 0;
+            return name;
+        }
 
         function startRecording() {
             recordedChunks = [];
@@ -525,28 +557,47 @@
                 const blob = new Blob(recordedChunks, { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.href = url;
-                a.download = `chiikuji_${Date.now()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
+                a.download = `${getFileName()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
                 a.click();
             };
+            
             mediaRecorder.start();
-            isRecording = true; recordBtn.classList.add('recording');
-            recordStartTime = Date.now(); updateTimer(); timerInterval = setInterval(updateTimer, 1000);
+            isRecording = true; 
+            recordBtn.classList.add('recording');
+            
+            // 録画と同時に台本も再生
+            togglePlay(true);
+            
+            recordStartTime = Date.now();
+            updateTimer(); 
+            timerInterval = setInterval(updateTimer, 1000);
         }
 
         function updateTimer() {
             const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
             const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
             const s = String(elapsed % 60).padStart(2, '0');
-            recordBtn.innerHTML = `<div style="font-size: 20px;">録画中</div><div class="timer-text">${m}:${s}</div>`;
+            recordBtn.innerHTML = `<div style="font-size: 22px; font-weight: 900;">録画中</div><div class="timer-text">${m}:${s}</div>`;
         }
 
         function stopRecording() {
             if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-            isRecording = false; recordBtn.classList.remove('recording'); recordBtn.textContent = '';
-            clearInterval(timerInterval); timerInterval = null;
+            isRecording = false; 
+            recordBtn.classList.remove('recording'); 
+            recordBtn.innerHTML = ''; 
+            
+            togglePlay(false);
+            
+            clearInterval(timerInterval); 
+            timerInterval = null;
         }
 
-        document.getElementById('edit-btn').onclick = (e) => { e.stopPropagation(); isPlaying = false; updatePlayIcon(); modal.style.display = 'block'; scriptInput.value = Array.from(content.querySelectorAll('.script-line')).map(d => d.textContent).join('\n'); };
+        recordBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (!isRecording) startRecording(); else stopRecording();
+        };
+
+        document.getElementById('edit-btn').onclick = (e) => { e.stopPropagation(); togglePlay(false); modal.style.display = 'block'; scriptInput.value = Array.from(content.querySelectorAll('.script-line')).map(d => d.textContent).join('\n'); };
         document.getElementById('close-modal').onclick = () => modal.style.display = 'none';
         document.getElementById('save-script').onclick = () => { updateContent(scriptInput.value); modal.style.display = 'none'; };
 
